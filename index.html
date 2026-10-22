@@ -32,14 +32,14 @@
             z-index: 1;
         }
         .leaflet-bottom {
-            bottom: 65px;
+            bottom: 85px !important;
         }
     </style>
 </head>
 <body class="h-full flex flex-col justify-between text-slate-100 bg-slate-900 select-none">
 
     <!-- Barra Superior -->
-    <header class="absolute top-0 left-0 right-0 z-20 p-3 flex items-center justify-between bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
+    <header class="absolute top-0 left-0 right-0 z-30 p-3 flex items-center justify-between bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
         <div class="flex items-center space-x-2">
             <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -54,25 +54,31 @@
                 </div>
             </div>
         </div>
-        <div class="flex items-center space-x-2">
-            <button onclick="toggleVoiceControl()" id="voiceBtn" class="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 active:scale-95 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-            </button>
-        </div>
     </header>
 
     <!-- Contenedor del Mapa -->
     <div id="map"></div>
 
     <!-- Controles Flotantes Laterales -->
-    <div class="absolute right-3 bottom-20 z-20 flex flex-col space-y-3">
+    <div class="absolute right-3 bottom-24 z-20 flex flex-col space-y-3">
         <button onclick="centerOnUser()" class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl text-white active:scale-95 transition">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
         </button>
     </div>
 
-    <!-- Barra de Navegación Inferior Estilo Android -->
-    <nav class="absolute bottom-0 left-0 right-0 z-20 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-4 py-2.5 flex justify-around items-center text-xs font-medium text-slate-400 shadow-2xl">
+    <!-- Panel Desplegable de Rutas / Voz -->
+    <div id="actionPanel" class="absolute bottom-20 left-3 right-3 z-30 bg-slate-900/95 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-2xl hidden">
+        <div class="flex justify-between items-center mb-2">
+            <h3 id="panelTitle" class="text-sm font-bold text-white">Panel</h3>
+            <button onclick="closePanel()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+        </div>
+        <div id="panelContent" class="text-xs text-slate-300">
+            <!-- Contenido dinámico -->
+        </div>
+    </div>
+
+    <!-- Barra de Navegación Inferior Estilo Android (Elevada y Visible) -->
+    <nav class="absolute bottom-2 left-3 right-3 z-30 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 px-4 py-3 rounded-2xl flex justify-around items-center text-xs font-medium text-slate-400 shadow-2xl">
         <button onclick="setActiveTab('map')" class="flex flex-col items-center space-y-1 text-blue-500" id="tabMap">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
             <span>Mapa</span>
@@ -153,23 +159,43 @@
             }
         }
 
-        function toggleVoiceControl() {
-            speak("Navegación por voz activa");
-        }
-
         function openRouteMenu() {
             setActiveTab('Route');
-            alert("Gestión de Rutas: Aquí podrás cargar archivos GPX o trazar tu ruta offline próximamente.");
+            document.getElementById('panelTitle').innerText = "Gestión de Rutas Offline";
+            document.getElementById('panelContent').innerHTML = `
+                <p class="mb-2">Carga un archivo de ruta o planifica tu viaje sin conexión:</p>
+                <div class="space-y-2">
+                    <button onclick="alert('Funcionalidad de archivo GPX lista para integrar')" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Cargar archivo GPX</button>
+                    <button onclick="alert('Modo simulación activado')" class="w-full py-2 bg-slate-800 border border-slate-600 rounded-xl text-slate-200 active:scale-95 transition">Simular Recorrido</button>
+                </div>
+            `;
+            document.getElementById('actionPanel').classList.remove('hidden');
         }
 
         function openVoiceMenu() {
             setActiveTab('Voice');
-            speak("Asistente de voz listo. Di tu destino.");
+            speak("Asistente de voz activado. Escuchando destino.");
+            document.getElementById('panelTitle').innerText = "Navegación por Voz";
+            document.getElementById('panelContent').innerHTML = `
+                <p class="mb-2 text-emerald-400 font-medium">● Escuchando comandos de voz...</p>
+                <p class="text-slate-400">Di instrucciones como: "Ir a casa", "Cancelar ruta" o "Repetir última indicación".</p>
+            `;
+            document.getElementById('actionPanel').classList.remove('hidden');
         }
 
         function openMenu() {
             setActiveTab('Menu');
-            alert("Menú de Configuración y Mapas Offline.");
+            document.getElementById('panelTitle').innerText = "Menú y Configuración";
+            document.getElementById('panelContent').innerHTML = `
+                <p class="mb-2">Aplicación de mapas y voz 100% offline para Android.</p>
+                <button onclick="location.reload()" class="w-full py-2 bg-slate-800 border border-slate-600 rounded-xl text-slate-200 active:scale-95 transition">Recargar Aplicación</button>
+            `;
+            document.getElementById('actionPanel').classList.remove('hidden');
+        }
+
+        function closePanel() {
+            document.getElementById('actionPanel').classList.add('hidden');
+            setActiveTab('Map');
         }
 
         function setActiveTab(tab) {
