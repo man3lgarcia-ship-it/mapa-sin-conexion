@@ -85,7 +85,7 @@
         </button>
         <button onclick="openRouteMenu()" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabRoute">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-1.544-1.544M9 20l4.544-4.544M9 20V10m0 0l-4.544 4.544M9 10l4.544-4.544"></path></svg>
-            <span>Ruta</span>
+            <span>Buscar/Ruta</span>
         </button>
         <button onclick="openVoiceMenu()" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabVoice">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
@@ -156,13 +156,15 @@
 
                 recognition.onresult = function(event) {
                     const speechResult = event.results[0][0].transcript.toLowerCase();
-                    document.getElementById('voiceStatus').innerText = `Dijiste: "${speechResult}"`;
+                    const statusEl = document.getElementById('voiceStatus');
+                    if(statusEl) statusEl.innerText = `Dijiste: "${speechResult}"`;
                     speak(`Buscando destino: ${speechResult}`);
-                    processVoiceCommand(speechResult);
+                    searchLocation(speechResult);
                 };
 
                 recognition.onerror = function(event) {
-                    document.getElementById('voiceStatus').innerText = "No se entendió. Intenta de nuevo.";
+                    const statusEl = document.getElementById('voiceStatus');
+                    if(statusEl) statusEl.innerText = "No se reconoció la voz. Usa el buscador escrito.";
                 };
             }
         }
@@ -171,29 +173,20 @@
             if (recognition) {
                 try {
                     recognition.start();
-                    document.getElementById('voiceStatus').innerText = "Escuchando... Habla ahora.";
+                    const statusEl = document.getElementById('voiceStatus');
+                    if(statusEl) statusEl.innerText = "Escuchando... Habla ahora.";
                     speak("Te escucho");
                 } catch(e) {
                     console.log(e);
                 }
             } else {
-                alert("Tu navegador no soporta reconocimiento de voz directo.");
-            }
-        }
-
-        function processVoiceCommand(command) {
-            if (command.includes('casa')) {
-                speak("Navegando hacia casa.");
-                // Simulación de coordenadas de destino (puedes personalizarlas)
-                setDestination(19.4350, -99.1410, "Casa");
-            } else {
-                // Búsqueda simulada o directa de un lugar usando Nominatim de OpenStreetMap
-                searchLocation(command);
+                alert("El reconocimiento de voz no está disponible en este navegador. Usa la pestaña 'Buscar/Ruta' para escribir tu destino.");
             }
         }
 
         async function searchLocation(query) {
-            document.getElementById('voiceStatus').innerText = `Buscando "${query}" en el mapa...`;
+            const statusEl = document.getElementById('voiceStatus') || document.getElementById('searchStatus');
+            if(statusEl) statusEl.innerText = `Buscando "${query}"...`;
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
                 const data = await response.json();
@@ -201,13 +194,22 @@
                     const lat = parseFloat(data[0].lat);
                     const lon = parseFloat(data[0].lon);
                     setDestination(lat, lon, data[0].display_name);
-                    speak("Destino encontrado. Iniciando ruta.");
+                    speak("Destino encontrado en el mapa.");
+                    if(statusEl) statusEl.innerText = "¡Destino encontrado!";
                 } else {
                     speak("No encontré el lugar especificado.");
-                    document.getElementById('voiceStatus').innerText = "No se encontró el lugar.";
+                    if(statusEl) statusEl.innerText = "No se encontró el lugar.";
                 }
             } catch (err) {
-                speak("Error de conexión al buscar el destino.");
+                speak("Error de conexión al buscar.");
+                if(statusEl) statusEl.innerText = "Error de búsqueda.";
+            }
+        }
+
+        function handleTextSearch() {
+            const query = document.getElementById('searchInput').value;
+            if (query.trim() !== "") {
+                searchLocation(query);
             }
         }
 
@@ -248,11 +250,13 @@
 
         function openRouteMenu() {
             setActiveTab('Route');
-            document.getElementById('panelTitle').innerText = "Gestión de Rutas";
+            document.getElementById('panelTitle').innerText = "Buscar Destino y Rutas";
             document.getElementById('panelContent').innerHTML = `
-                <p class="mb-2">Planifica o gestiona tus rutas sin conexión:</p>
+                <p class="mb-2">Escribe el lugar, calle o parque al que deseas ir:</p>
                 <div class="space-y-2">
-                    <button onclick="if(destinationMarker){ map.setView(destinationMarker.getLatLng(), 16); closePanel(); } else { alert('Primero establece un destino por voz'); }" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Ver Destino Actual</button>
+                    <input type="text" id="searchInput" placeholder="Ej. Av. Juárez, Parque..." class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500">
+                    <button onclick="handleTextSearch()" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Buscar en el Mapa</button>
+                    <p id="searchStatus" class="text-slate-400 text-center text-[11px] mt-1"></p>
                 </div>
             `;
             document.getElementById('actionPanel').classList.remove('hidden');
@@ -262,7 +266,7 @@
             setActiveTab('Voice');
             document.getElementById('panelTitle').innerText = "Asistente de Voz GPS";
             document.getElementById('panelContent').innerHTML = `
-                <p id="voiceStatus" class="mb-3 text-emerald-400 font-medium">Toca el botón para hablar y di tu destino.</p>
+                <p id="voiceStatus" class="mb-3 text-emerald-400 font-medium">Toca el botón para hablar o usa la pestaña 'Buscar/Ruta' si tu celular bloquea el micrófono.</p>
                 <button onclick="startListening()" class="w-full py-3 bg-emerald-600 rounded-xl text-white font-bold text-sm shadow-lg active:scale-95 transition flex items-center justify-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                     <span>Hablar al Asistente</span>
@@ -275,7 +279,7 @@
             setActiveTab('Menu');
             document.getElementById('panelTitle').innerText = "Menú y Opciones";
             document.getElementById('panelContent').innerHTML = `
-                <p class="mb-2">Navegador GPS Offline con síntesis y reconocimiento de voz.</p>
+                <p class="mb-2">Navegador GPS Offline con búsqueda y voz.</p>
                 <button onclick="location.reload()" class="w-full py-2 bg-slate-800 border border-slate-600 rounded-xl text-slate-200 active:scale-95 transition">Reiniciar App</button>
             `;
             document.getElementById('actionPanel').classList.remove('hidden');
