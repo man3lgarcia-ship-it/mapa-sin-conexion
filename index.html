@@ -115,7 +115,6 @@
         let map, userMarker, destinationMarker;
         let isFollowing = true;
         let recognition;
-        let isSpeaking = false;
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([20.6668, -103.3918], 14);
@@ -169,28 +168,25 @@
                 recognition.interimResults = false;
 
                 recognition.onresult = function(event) {
-                    if (isSpeaking) return; // Ignorar si el asistente está hablando
                     const speechResult = event.results[0][0].transcript.toLowerCase();
                     const statusEl = document.getElementById('voiceStatus');
-                    if(statusEl) statusEl.innerText = `Dijiste: "${speechResult}"`;
-                    speak(`Buscando en Guadalajara: ${speechResult}`);
+                    if(statusEl) statusEl.innerText = `Buscando: "${speechResult}"`;
                     searchLocation(speechResult);
                 };
 
                 recognition.onerror = function(event) {
                     const statusEl = document.getElementById('voiceStatus');
-                    if(statusEl && !isSpeaking) statusEl.innerText = "No se reconoció la voz. Intenta de nuevo.";
+                    if(statusEl) statusEl.innerText = "No se reconoció la voz. Intenta de nuevo.";
                 };
             }
         }
 
         function startListening() {
-            if (isSpeaking) return;
             if (recognition) {
                 try {
                     recognition.start();
                     const statusEl = document.getElementById('voiceStatus');
-                    if(statusEl) statusEl.innerText = "Escuchando... Habla ahora.";
+                    if(statusEl) statusEl.innerText = "Escuchando...";
                 } catch(e) {
                     console.log(e);
                 }
@@ -214,7 +210,6 @@
                     const lat = parseFloat(data[0].lat);
                     const lon = parseFloat(data[0].lon);
                     setDestination(lat, lon, data[0].display_name);
-                    speak("Destino encontrado en Guadalajara.");
                     if(statusEl) statusEl.innerText = "¡Destino encontrado!";
                 } else {
                     const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", Jalisco")}&countrycodes=mx`;
@@ -225,15 +220,12 @@
                         const lat = parseFloat(fallbackData[0].lat);
                         const lon = parseFloat(fallbackData[0].lon);
                         setDestination(lat, lon, fallbackData[0].display_name);
-                        speak("Destino encontrado en Jalisco.");
                         if(statusEl) statusEl.innerText = "¡Encontrado en Jalisco!";
                     } else {
-                        speak("No encontré el lugar en Guadalajara.");
                         if(statusEl) statusEl.innerText = "No se encontró el lugar.";
                     }
                 }
             } catch (err) {
-                speak("Error de conexión al buscar.");
                 if(statusEl) statusEl.innerText = "Error de búsqueda.";
             }
         }
@@ -268,22 +260,6 @@
             isFollowing = true;
             if (userMarker) {
                 map.setView(userMarker.getLatLng(), 17);
-                speak("Centrado en tu ubicación");
-            }
-        }
-
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // Cancelar cualquier audio anterior
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'es-MX';
-                
-                isSpeaking = true; // Bloquear escucha mientras habla
-                utterance.onend = function() {
-                    setTimeout(() => { isSpeaking = false; }, 500); // Dar medio segundo de margen tras terminar de hablar
-                };
-                
-                window.speechSynthesis.speak(utterance);
             }
         }
 
@@ -321,7 +297,7 @@
                 <p class="mb-2">Navegador GPS optimizado para Guadalajara.</p>
                 <button onclick="location.reload()" class="w-full py-2 bg-slate-800 border border-slate-600 rounded-xl text-slate-200 active:scale-95 transition">Reiniciar App</button>
             `;
-            document.getElementById('actionPanel').classList.remove('hidden');
+            document.getElementById('actionPanel').classList.add('hidden');
         }
 
         function closePanel() {
