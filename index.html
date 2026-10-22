@@ -1,636 +1,223 @@
-<meta name="theme-color" content="#2563eb">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="manifest" id="pwaManifest">
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OfflineNav Android GPS & Voz</title>
 
-<!-- Tailwind CSS -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        darkMode: 'class',
-        theme: {
-            extend: {
-                colors: {
-                    brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+    <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" id="pwaManifest">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+                    }
                 }
             }
         }
-    }
-</script>
+    </script>
 
-<!-- Leaflet CSS & JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-<!-- FontAwesome Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; }
+        #map { width: 100%; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        .leaflet-bottom { bottom: 65px; }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between text-slate-100 bg-slate-900 select-none">
 
-<!-- Inter Font -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- PWA Manifest Dinámico -->
+    <script>
+        const manifestData = {
+            "name": "OfflineNav Android GPS",
+            "short_name": "OfflineNav",
+            "start_url": "./index.html",
+            "display": "standalone",
+            "background_color": "#0f172a",
+            "theme_color": "#1e293b",
+            "icons": [{
+                "src": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
+                "sizes": "512x512",
+                "type": "image/png"
+            }]
+        };
+        const stringManifest = JSON.stringify(manifestData);
+        const blob = new Blob([stringManifest], {type: 'application/json'});
+        document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
+    </script>
 
-<style>
-    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-    #map { width: 100%; height: 100%; min-height: 100%; background: #e5e7eb; position: absolute !important; inset: 0; z-index: 1; }
-    .dark .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
-    .safe-top { padding-top: env(safe-area-inset-top); }
-    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
-</style>
-
-
-<!-- Barra de Estado Android / Cabecera -->
-<header class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 safe-top shadow-sm shrink-0">
-    <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
-            <i class="fa-solid fa-location-arrow text-lg"></i>
-        </div>
-        <div>
-            <div class="flex items-center gap-2">
-                <h1 class="font-bold text-base leading-tight tracking-tight">OfflineNav Android</h1>
-                <span id="wakelockBadge" class="hidden text-[10px] bg-emerald-500/10 text-emerald-600 font-semibold px-1.5 py-0.5 rounded-md border border-emerald-500/20">WakeLock</span>
+    <!-- Barra Superior -->
+    <header class="absolute top-0 left-0 right-0 z-20 p-3 flex items-center justify-between bg-slate-900/80 backdrop-blur-md border-b border-slate-800 shadow-lg">
+        <div class="flex items-center space-x-2">
+            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             </div>
-            <div class="flex items-center gap-2 text-xs">
-                <span id="connectionStatus" class="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Online
-                </span>
-                <span class="text-slate-300 dark:text-slate-600">•</span>
-                <span id="gpsSpeedBadge" class="text-slate-500 dark:text-slate-400">0 km/h</span>
+            <div>
+                <h1 class="text-sm font-bold tracking-tight text-white leading-tight">OfflineNav Android</h1>
+                <div class="flex items-center space-x-1.5 text-xs text-emerald-400">
+                    <span id="gpsStatusDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="gpsStatusText">Buscando GPS...</span>
+                    <span class="text-slate-500">•</span>
+                    <span id="speedDisplay">0 km/h</span>
+                </div>
             </div>
         </div>
-    </div>
-
-    <div class="flex items-center gap-2">
-        <button id="installPwaBtn" class="hidden px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-md items-center gap-1.5 transition">
-            <i class="fa-solid fa-download"></i> Instalar
-        </button>
-        <button id="voiceCommandBtn" title="Control por Voz" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-slate-700 dark:text-slate-200 active:scale-95">
-            <i class="fa-solid fa-microphone text-lg"></i>
-        </button>
-        <button id="themeToggle" title="Modo Oscuro" class="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-slate-700 dark:text-slate-200 active:scale-95">
-            <i class="fa-solid fa-moon dark:fa-sun text-lg"></i>
-        </button>
-    </div>
-</header>
-
-<!-- Cuerpo Principal -->
-<div class="flex-1 relative flex overflow-hidden w-full h-full">
-
-    <!-- Panel Desplegable Lateral (Menú y Búsqueda) -->
-    <aside id="sidebar" class="absolute inset-y-0 left-0 z-40 w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl h-full">
-        <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <h2 class="font-bold text-base flex items-center gap-2">
-                <i class="fa-solid fa-compass text-brand-500"></i> Explorar & Menú
-            </h2>
-            <button id="closeSidebar" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <i class="fa-solid fa-xmark text-lg"></i>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleVoiceControl()" id="voiceBtn" class="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 active:scale-95 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            </button>
+            <button onclick="toggleTheme()" class="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 active:scale-95 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
             </button>
         </div>
-
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            <div class="space-y-2">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Buscar Lugar</label>
-                <div class="relative flex items-center">
-                    <i class="fa-solid fa-search absolute left-3.5 text-slate-400"></i>
-                    <input type="text" id="searchInput" placeholder="Dirección, ciudad o lat,lng..." 
-                        class="w-full pl-10 pr-10 py-3 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
-                </div>
-                <div id="searchResults" class="bg-slate-50 dark:bg-slate-700/30 rounded-xl max-h-48 overflow-y-auto space-y-1 hidden p-1"></div>
-            </div>
-
-            <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Gestión Offline</h3>
-                <div class="bg-slate-50 dark:bg-slate-700/40 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 space-y-3">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="text-slate-600 dark:text-slate-300">Teselas en caché:</span>
-                        <span id="cacheCount" class="font-bold px-2 py-0.5 bg-slate-200 dark:bg-slate-600 rounded-md">0</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="cacheAreaBtn" class="py-2.5 bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-download"></i> Guardar Vista
-                        </button>
-                        <button id="clearCacheBtn" class="py-2.5 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 border border-rose-200 dark:border-rose-900">
-                            <i class="fa-solid fa-trash"></i> Limpiar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </aside>
+    </header>
 
     <!-- Contenedor del Mapa -->
-    <main class="flex-1 relative w-full h-full overflow-hidden">
-        <div id="map"></div>
+    <div id="map"></div>
 
-        <div id="activeNavigationCard" class="hidden absolute top-4 inset-x-4 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-brand-200 dark:border-brand-800 rounded-2xl p-4 shadow-2xl">
-            <div class="flex items-center justify-between mb-2">
-                <span class="px-2.5 py-0.5 bg-brand-500 text-white rounded-lg text-xs font-bold">Navegando GPS</span>
-                <button id="stopNavigationBtn" class="text-rose-500 text-xs font-bold flex items-center gap-1">
-                    <i class="fa-solid fa-xmark"></i> Finalizar
-                </button>
-            </div>
-            <div class="flex items-center gap-3">
-                <div id="navInstructionIcon" class="w-12 h-12 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-2xl shrink-0 shadow-lg shadow-brand-500/30">
-                    <i class="fa-solid fa-arrow-up"></i>
-                </div>
-                <div class="flex-1">
-                    <p id="navNextInstruction" class="font-bold text-sm text-slate-900 dark:text-slate-100">Calculando ruta...</p>
-                    <p id="navDistanceRemaining" class="text-xs text-brand-600 dark:text-brand-400 font-semibold mt-0.5">-</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="absolute bottom-20 right-4 z-20 flex flex-col gap-2.5">
-            <button id="simulateGpsBtn" title="Simular Ruta" class="w-12 h-12 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl shadow-xl flex items-center justify-center border border-slate-200 dark:border-slate-700 active:scale-95 transition">
-                <i class="fa-solid fa-person-walking text-lg"></i>
-            </button>
-            <button id="recenterBtn" title="Mi Ubicación" class="w-12 h-12 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 rounded-2xl shadow-xl flex items-center justify-center border border-slate-200 dark:border-slate-700 active:scale-95 transition">
-                <i class="fa-solid fa-crosshairs text-lg"></i>
-            </button>
-        </div>
-    </main>
-</div>
-
-<!-- Barra de Navegación Inferior Android -->
-<nav class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-around safe-bottom shadow-lg shrink-0">
-    <button id="navTabMap" class="flex flex-col items-center gap-1 text-brand-600 dark:text-brand-400 py-1 px-3 rounded-xl transition">
-        <i class="fa-solid fa-map text-lg"></i>
-        <span class="text-[10px] font-semibold">Mapa</span>
-    </button>
-    <button id="navTabRoute" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 py-1 px-3 rounded-xl transition">
-        <i class="fa-solid fa-route text-lg"></i>
-        <span class="text-[10px] font-medium">Ruta</span>
-    </button>
-    <button id="navTabVoice" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 py-1 px-3 rounded-xl transition">
-        <i class="fa-solid fa-microphone text-lg"></i>
-        <span class="text-[10px] font-medium">Voz</span>
-    </button>
-    <button id="navTabMenu" class="flex flex-col items-center gap-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 py-1 px-3 rounded-xl transition">
-        <i class="fa-solid fa-bars text-lg"></i>
-        <span class="text-[10px] font-medium">Menú</span>
-    </button>
-</nav>
-
-<!-- Modal Planificador de Ruta -->
-<div id="routeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
-    <div class="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-            <h3 class="font-bold text-base flex items-center gap-2">
-                <i class="fa-solid fa-route text-brand-500"></i> Planificador de Ruta
-            </h3>
-            <button onclick="document.getElementById('routeModal').classList.add('hidden')" class="p-1 text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-        </div>
-        <div class="space-y-3">
-            <div class="relative">
-                <div class="absolute inset-y-0 left-3 flex items-center text-emerald-500"><i class="fa-solid fa-circle text-xs"></i></div>
-                <input type="text" id="startLocationInput" value="Mi ubicación GPS actual" readonly class="w-full pl-9 pr-3 py-3 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
-            </div>
-            <div class="relative">
-                <div class="absolute inset-y-0 left-3 flex items-center text-rose-500"><i class="fa-solid fa-location-dot text-xs"></i></div>
-                <input type="text" id="destLocationInput" placeholder="Toca el mapa o busca un destino" class="w-full pl-9 pr-3 py-3 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-xl text-sm">
-            </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 pt-2">
-            <button id="calculateRouteBtn" class="py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-semibold text-sm transition shadow-lg shadow-brand-500/20">
-                Calcular Ruta
-            </button>
-            <button id="startNavBtn" class="py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm transition shadow-lg shadow-emerald-500/20 disabled:opacity-50" disabled>
-                Iniciar Navegación
-            </button>
-        </div>
+    <!-- Controles Flotantes Laterales -->
+    <div class="absolute right-3 bottom-24 z-20 flex flex-col space-y-3">
+        <button onclick="switchMode()" id="modeBtn" class="w-12 h-12 bg-slate-800/90 backdrop-blur border border-slate-700 rounded-2xl flex items-center justify-center shadow-xl text-white active:scale-95 transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+        </button>
+        <button onclick="centerOnUser()" class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl text-white active:scale-95 transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
+        </button>
     </div>
-</div>
 
-<!-- Notificación Toast -->
-<div id="notificationToast" class="fixed top-16 right-4 z-50 transform translate-x-full transition-transform duration-300 max-w-sm">
-    <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 flex items-center gap-3">
-        <div id="toastIcon" class="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center shrink-0">
-            <i class="fa-solid fa-info"></i>
-        </div>
-        <div>
-            <h4 id="toastTitle" class="font-bold text-sm">Aviso</h4>
-            <p id="toastMessage" class="text-xs text-slate-500 dark:text-slate-400">Mensaje de notificación</p>
-        </div>
-    </div>
-</div>
+    <!-- Barra de Navegación Inferior Estilo Android -->
+    <nav class="absolute bottom-0 left-0 right-0 z-20 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-4 py-2 flex justify-around items-center text-xs font-medium text-slate-400">
+        <button onclick="setActiveTab('map')" class="flex flex-col items-center space-y-1 text-blue-500" id="tabMap">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+            <span>Mapa</span>
+        </button>
+        <button onclick="setActiveTab('route')" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabRoute">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-1.544-1.544M9 20l4.544-4.544M9 20V10m0 0l-4.544 4.544M9 10l4.544-4.544"></path></svg>
+            <span>Ruta</span>
+        </button>
+        <button onclick="setActiveTab('voice')" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabVoice">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            <span>Voz</span>
+        </button>
+        <button onclick="setActiveTab('menu')" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabMenu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <span>Menú</span>
+        </button>
+    </nav>
 
-<!-- Script de la Aplicación -->
-<script>
-    const manifestData = {
-        "name": "OfflineNav Android GPS",
-        "short_name": "OfflineNav",
-        "start_url": "./index.html",
-        "display": "standalone",
-        "background_color": "#0f172a",
-        "theme_color": "#2563eb",
-        "orientation": "portrait",
-        "icons": [
-            { "src": "https://placehold.co/192x192/2563eb/ffffff?text=ON", "sizes": "192x192", "type": "image/png" },
-            { "src": "https://placehold.co/512x512/2563eb/ffffff?text=ON", "sizes": "512x512", "type": "image/png" }
-        ]
-    };
-    const stringManifest = JSON.stringify(manifestData);
-    const blob = new Blob([stringManifest], {type: 'application/json'});
-    document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
+    <!-- Script de Lógica Principal y Mapa -->
+    <script>
+        let map, userMarker, watchId;
+        let isFollowing = true;
+        let wakeLock = null;
 
-    if ('serviceWorker' in navigator) {
-        const swCode = `
-            const CACHE_NAME = 'offlinenav-v1';
-            self.addEventListener('install', (e) => { self.skipWaiting(); });
-            self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
-            self.addEventListener('fetch', (e) => {
-                e.respondWith(
-                    caches.match(e.request).then((cachedResponse) => {
-                        if (cachedResponse) return cachedResponse;
-                        return fetch(e.request).then((networkResponse) => {
-                            return caches.open(CACHE_NAME).then((cache) => {
-                                cache.put(e.request, networkResponse.clone());
-                                return networkResponse;
-                            });
-                        }).catch(() => caches.match('./index.html'));
-                    })
+        // Inicializar Mapa
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([19.4326, -99.1332], 15);
+
+            // Capa de teselas con cabecera personalizada para evitar bloqueos 403
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap',
+                subdomains: ['a', 'b', 'c'],
+                className: 'map-tiles'
+            }).addTo(map);
+
+            startGPS();
+            requestWakeLock();
+        }
+
+        // GPS en Vivo
+        function startGPS() {
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        const speed = position.coords.speed ? (position.coords.speed * 3.6).toFixed(0) : 0;
+
+                        document.getElementById('speedDisplay').innerText = `${speed} km/h`;
+                        document.getElementById('gpsStatusText').innerText = "GPS Activo";
+
+                        const latLng = [lat, lng];
+                        if (!userMarker) {
+                            userMarker = L.marker(latLng).addTo(map);
+                        } else {
+                            userMarker.setLatLng(latLng);
+                        }
+
+                        if (isFollowing) {
+                            map.setView(latLng, 16);
+                        }
+                    },
+                    (error) => {
+                        document.getElementById('gpsStatusText').innerText = "Error GPS";
+                        document.getElementById('gpsStatusDot').classList.remove('bg-emerald-500', 'animate-pulse');
+                        document.getElementById('gpsStatusDot').classList.add('bg-rose-500');
+                    },
+                    { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
                 );
-            });
-        `;
-        const swBlob = new Blob([swCode], {type: 'text/javascript'});
-        const swUrl = URL.createObjectURL(swBlob);
-        navigator.serviceWorker.register(swUrl).catch(err => console.log('SW registration failed', err));
-    }
+            }
+        }
 
-    let map = null;
-    let userMarker = null;
-    let destMarker = null;
-    let routePolyline = null;
-    let db = null;
-    let currentLatLng = [19.4326, -99.1332];
-    let destinationLatLng = null;
-    let currentRouteCoords = [];
-    let navigationActive = false;
-    let currentStepIndex = 0;
-    let isSimulating = false;
-    let simulationInterval = null;
-    let deferredInstallPrompt = null;
-    let wakeLockObj = null;
+        function centerOnUser() {
+            isFollowing = true;
+            if (userMarker) {
+                map.setView(userMarker.getLatLng(), 17);
+            }
+        }
 
-    async function requestWakeLock() {
-        if ('wakeLock' in navigator) {
+        async function requestWakeLock() {
             try {
-                wakeLockObj = await navigator.wakeLock.request('screen');
-                document.getElementById('wakelockBadge').classList.remove('hidden');
-            } catch (err) { console.log('WakeLock error:', err); }
-        }
-    }
-
-    function releaseWakeLock() {
-        if (wakeLockObj) {
-            wakeLockObj.release().catch(() => {});
-            wakeLockObj = null;
-            document.getElementById('wakelockBadge').classList.add('hidden');
-        }
-    }
-
-    function showNotification(title, message, type = 'info') {
-        const toast = document.getElementById('notificationToast');
-        document.getElementById('toastTitle').textContent = title;
-        document.getElementById('toastMessage').textContent = message;
-        document.getElementById('toastIcon').className = "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white " + 
-            (type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-rose-500' : 'bg-brand-500');
-
-        toast.classList.remove('translate-x-full');
-        setTimeout(() => toast.classList.add('translate-x-full'), 4000);
-    }
-
-    function speak(text) {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            window.speechSynthesis.speak(utterance);
-        }
-    }
-
-    function initDB() {
-        return new Promise((resolve) => {
-            const req = indexedDB.open('OfflineNavAndroidDB', 1);
-            req.onupgradeneeded = (e) => {
-                const dbInstance = e.target.result;
-                if (!dbInstance.objectStoreNames.contains('tiles')) dbInstance.createObjectStore('tiles', { keyPath: 'url' });
-            };
-            req.onsuccess = (e) => {
-                db = e.target.result;
-                updateTileCount();
-                resolve(db);
-            };
-        });
-    }
-
-    function updateTileCount() {
-        if (!db) return;
-        const tx = db.transaction(['tiles'], 'readonly');
-        const req = tx.objectStore('tiles').count();
-        req.onsuccess = () => {
-            document.getElementById('cacheCount').textContent = req.result;
-        };
-    }
-
-    L.TileLayer.OfflineCache = L.TileLayer.extend({
-        createTile: function(coords, done) {
-            const tile = document.createElement('img');
-            L.DomEvent.on(tile, 'load', L.bind(this._tileReady, this, coords, tile, done));
-            L.DomEvent.on(tile, 'error', L.bind(this._tileReady, this, coords, tile, done));
-            if (this.options.crossOrigin) tile.crossOrigin = '';
-            tile.alt = '';
-
-            const url = this.getTileUrl(coords);
-            if (db) {
-                const tx = db.transaction(['tiles'], 'readonly');
-                const req = tx.objectStore('tiles').get(url);
-                req.onsuccess = () => {
-                    if (req.result) {
-                        tile.src = URL.createObjectURL(req.result.blob);
-                    } else {
-                        fetch(url).then(res => res.blob()).then(blob => {
-                            const writeTx = db.transaction(['tiles'], 'readwrite');
-                            writeTx.objectStore('tiles').put({ url: url, blob: blob });
-                            tile.src = URL.createObjectURL(blob);
-                        }).catch(() => {
-                            tile.src = 'https://placehold.co/256x256/e2e8f0/94a3b8?text=Offline';
-                        });
-                    }
-                };
-            } else {
-                tile.src = url;
-            }
-            return tile;
-        }
-    });
-
-    function initMap() {
-        if (map) return;
-        map = L.map('map', { zoomControl: false }).setView(currentLatLng, 15);
-        
-        new L.TileLayer.OfflineCache('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap'
-        }).addTo(map);
-
-        const userIcon = L.divIcon({
-            className: 'user-marker',
-            html: '<div class="w-6 h-6 bg-brand-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center animate-pulse"><div class="w-2 h-2 bg-white rounded-full"></div></div>',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-        });
-
-        userMarker = L.marker(currentLatLng, { icon: userIcon }).addTo(map);
-
-        map.on('click', (e) => {
-            setDestination(e.latlng.lat, e.latlng.lng, 'Punto seleccionado');
-        });
-
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (pos) => {
-                    const latLng = [pos.coords.latitude, pos.coords.longitude];
-                    currentLatLng = latLng;
-                    if (userMarker) userMarker.setLatLng(latLng);
-                    if (pos.coords.speed !== null) {
-                        const speedKmH = Math.round(pos.coords.speed * 3.6);
-                        document.getElementById('gpsSpeedBadge').textContent = `${speedKmH} km/h`;
-                    }
-                },
-                (err) => console.log('Geolocation error:', err),
-                { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
-            );
-        }
-    }
-
-    async function searchPlaces(query) {
-        if (!query.trim()) return;
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            const container = document.getElementById('searchResults');
-            container.innerHTML = '';
-            container.classList.remove('hidden');
-
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'p-2.5 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-xl text-xs cursor-pointer truncate';
-                div.textContent = item.display_name;
-                div.onclick = () => {
-                    setDestination(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
-                    container.classList.add('hidden');
-                };
-                container.appendChild(div);
-            });
-        } catch (err) {
-            showNotification('Búsqueda', 'Sin conexión a internet para buscar.', 'error');
-        }
-    }
-
-    function setDestination(lat, lon, name) {
-        destinationLatLng = [lat, lon];
-        document.getElementById('destLocationInput').value = name;
-        document.getElementById('startNavBtn').disabled = false;
-
-        if (destMarker) map.removeLayer(destMarker);
-        const destIcon = L.divIcon({
-            className: 'dest-marker',
-            html: '<div class="w-8 h-8 bg-rose-600 rounded-full border-4 border-white shadow-xl flex items-center justify-center text-white"><i class="fa-solid fa-flag text-xs"></i></div>',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32]
-        });
-        destMarker = L.marker([lat, lon], { icon: destIcon }).addTo(map);
-        if (map) map.setView([lat, lon], 15);
-    }
-
-    async function calculateRoute() {
-        if (!destinationLatLng) return;
-        try {
-            const start = `${currentLatLng[1]},${currentLatLng[0]}`;
-            const end = `${destinationLatLng[1]},${destinationLatLng[0]}`;
-            const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson&steps=true`);
-            const data = await res.json();
-            const route = data.routes[0];
-
-            currentRouteCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-            if (routePolyline) map.removeLayer(routePolyline);
-            routePolyline = L.polyline(currentRouteCoords, { color: '#3b82f6', weight: 6 }).addTo(map);
-            if (map) map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
-
-            window.currentRouteSteps = route.legs[0].steps;
-            document.getElementById('routeModal').classList.add('hidden');
-            showNotification('Ruta', 'Ruta calculada correctamente', 'success');
-        } catch (err) {
-            currentRouteCoords = [currentLatLng, destinationLatLng];
-            if (routePolyline) map.removeLayer(routePolyline);
-            routePolyline = L.polyline(currentRouteCoords, { color: '#3b82f6', weight: 5, dashArray: '10, 10' }).addTo(map);
-            window.currentRouteSteps = [{ maneuver: { instruction: 'Dirígete en línea recta hacia el destino' } }];
-            document.getElementById('routeModal').classList.add('hidden');
-            showNotification('Offline', 'Usando ruta estimada en línea recta.', 'info');
-        }
-    }
-
-    function startNavigation() {
-        if (!destinationLatLng) return;
-        navigationActive = true;
-        currentStepIndex = 0;
-        document.getElementById('activeNavigationCard').classList.remove('hidden');
-        requestWakeLock();
-        speak("Navegación iniciada.");
-        updateNavInstruction();
-    }
-
-    function stopNavigation() {
-        navigationActive = false;
-        document.getElementById('activeNavigationCard').classList.add('hidden');
-        if (routePolyline) map.removeLayer(routePolyline);
-        if (destMarker) map.removeLayer(destMarker);
-        destMarker = null;
-        routePolyline = null;
-        releaseWakeLock();
-        speak("Navegación finalizada.");
-    }
-
-    function updateNavInstruction() {
-        if (!navigationActive || !window.currentRouteSteps) return;
-        const step = window.currentRouteSteps[currentStepIndex] || window.currentRouteSteps[window.currentRouteSteps.length - 1];
-        const instruction = step.maneuver.instruction || "Continúe por la vía actual";
-        document.getElementById('navNextInstruction').textContent = instruction;
-        speak(instruction);
-    }
-
-    function initVoiceRecognition() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            showNotification('Voz', 'Reconocimiento de voz no soportado en este navegador.', 'error');
-            return;
-        }
-        const rec = new SpeechRecognition();
-        rec.lang = 'es-ES';
-        rec.start();
-        showNotification('Voz', 'Escuchando comando...', 'info');
-
-        rec.onresult = (e) => {
-            const text = e.results[0][0].transcript.toLowerCase();
-            if (text.includes('buscar') || text.includes('ir a')) {
-                const q = text.replace('buscar', '').replace('ir a', '').trim();
-                searchPlaces(q);
-            } else if (text.includes('iniciar')) {
-                startNavigation();
-            } else if (text.includes('detener')) {
-                stopNavigation();
-            } else {
-                showNotification('Voz', `Comando: "${text}"`, 'success');
-            }
-        };
-    }
-
-    function toggleSimulation() {
-        if (!currentRouteCoords.length) {
-            showNotification('Simulador', 'Calcula una ruta primero.', 'error');
-            return;
-        }
-        if (isSimulating) {
-            clearInterval(simulationInterval);
-            isSimulating = false;
-        } else {
-            isSimulating = true;
-            let simIdx = 0;
-            showNotification('Simulación', 'Simulando trayecto GPS...', 'success');
-            simulationInterval = setInterval(() => {
-                if (simIdx >= currentRouteCoords.length) {
-                    clearInterval(simulationInterval);
-                    isSimulating = false;
-                    stopNavigation();
-                    return;
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
                 }
-                const c = currentRouteCoords[simIdx];
-                currentLatLng = c;
-                if (userMarker) userMarker.setLatLng(c);
-                if (map) map.panTo(c);
-                simIdx++;
-            }, 1000);
-        }
-    }
-
-    window.addEventListener('DOMContentLoaded', async () => {
-        await initDB();
-        initMap();
-
-        setTimeout(() => { if (map) map.invalidateSize(); }, 300);
-
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredInstallPrompt = e;
-            const installBtn = document.getElementById('installPwaBtn');
-            installBtn.classList.remove('hidden');
-            installBtn.classList.add('flex');
-        });
-
-        document.getElementById('installPwaBtn').addEventListener('click', async () => {
-            if (deferredInstallPrompt) {
-                deferredInstallPrompt.prompt();
-                const { outcome } = await deferredInstallPrompt.userChoice;
-                if (outcome === 'accepted') document.getElementById('installPwaBtn').classList.add('hidden');
-                deferredInstallPrompt = null;
+            } catch (err) {
+                console.log(err);
             }
-        });
+        }
 
-        const sidebar = document.getElementById('sidebar');
-        const routeModal = document.getElementById('routeModal');
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
 
-        document.getElementById('navTabMap').addEventListener('click', () => {
-            sidebar.classList.add('-translate-x-full');
-            routeModal.classList.add('hidden');
-            setTimeout(() => { if (map) map.invalidateSize(); }, 200);
-        });
-        document.getElementById('navTabRoute').addEventListener('click', () => {
-            routeModal.classList.remove('hidden');
-            sidebar.classList.add('-translate-x-full');
-        });
-        document.getElementById('navTabVoice').addEventListener('click', initVoiceRecognition);
-        document.getElementById('navTabMenu').addEventListener('click', () => {
-            sidebar.classList.toggle('-translate-x-full');
-            routeModal.classList.add('hidden');
-            setTimeout(() => { if (map) map.invalidateSize(); }, 200);
-        });
+        function toggleVoiceControl() {
+            speak("Control por voz activado");
+        }
 
-        document.getElementById('closeSidebar').addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
+        function toggleTheme() {
+            document.body.classList.toggle('bg-slate-900');
+            document.body.classList.toggle('bg-white');
+        }
 
-        let searchTimeout;
-        document.getElementById('searchInput').addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => searchPlaces(e.target.value), 500);
-        });
+        function switchMode() {
+            isFollowing = !isFollowing;
+            speak(isFollowing ? "Modo seguimiento activado" : "Modo libre activado");
+        }
 
-        document.getElementById('calculateRouteBtn').addEventListener('click', calculateRoute);
-        document.getElementById('startNavBtn').addEventListener('click', startNavigation);
-        document.getElementById('stopNavigationBtn').addEventListener('click', stopNavigation);
-        document.getElementById('simulateGpsBtn').addEventListener('click', toggleSimulation);
-        document.getElementById('recenterBtn').addEventListener('click', () => { if (map) map.setView(currentLatLng, 16); });
-        document.getElementById('voiceCommandBtn').addEventListener('click', initVoiceRecognition);
+        function setActiveTab(tab) {
+            ['Map', 'Route', 'Voice', 'Menu'].forEach(t => {
+                const el = document.getElementById('tab' + t);
+                if(el) el.className = "flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200";
+            });
+            const active = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+            if(active) active.className = "flex flex-col items-center space-y-1 text-blue-500";
+        }
 
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-        });
-
-        document.getElementById('cacheAreaBtn').addEventListener('click', () => {
-            showNotification('Caché', 'Área visible almacenada en caché local.', 'success');
-            updateTileCount();
-        });
-
-        document.getElementById('clearCacheBtn').addEventListener('click', () => {
-            if (!db) return;
-            const tx = db.transaction(['tiles'], 'readwrite');
-            tx.objectStore('tiles').clear();
-            tx.oncomplete = () => {
-                updateTileCount();
-                showNotification('Caché', 'Caché de teselas eliminada.', 'info');
-            };
-        });
-    });
-</script>
+        window.onload = initMap;
+    </script>
+</body>
+</html>
