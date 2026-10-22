@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>OfflineNav Android GPS & Voz</title>
     
-    <!-- Android PWA Manifest Embedded via Blob/Data URI or Meta tags -->
     <meta name="theme-color" content="#2563eb">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -38,9 +37,8 @@
 
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
-        .leaflet-container { width: 100%; height: 100%; background: #e5e7eb; z-index: 10; }
+        #map { width: 100%; height: 100%; min-height: 100%; background: #e5e7eb; position: absolute !important; inset: 0; z-index: 1; }
         .dark .leaflet-tile { filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3); }
-        /* Safe Area padding for Android gesture bars & punch-hole cameras */
         .safe-top { padding-top: env(safe-area-inset-top); }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -50,8 +48,8 @@
 </head>
 <body class="h-full bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 overflow-hidden flex flex-col select-none">
 
-    <!-- Android Status Bar / Top Header -->
-    <header class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 safe-top shadow-sm">
+    <!-- Barra de Estado Android / Cabecera -->
+    <header class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 safe-top shadow-sm shrink-0">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
                 <i class="fa-solid fa-location-arrow text-lg"></i>
@@ -72,7 +70,6 @@
         </div>
 
         <div class="flex items-center gap-2">
-            <!-- Install PWA Button (Hidden until prompt available) -->
             <button id="installPwaBtn" class="hidden px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-semibold shadow-md items-center gap-1.5 transition">
                 <i class="fa-solid fa-download"></i> Instalar
             </button>
@@ -85,11 +82,11 @@
         </div>
     </header>
 
-    <!-- Main Content Body -->
-    <div class="flex-1 relative flex overflow-hidden">
+    <!-- Cuerpo Principal -->
+    <div class="flex-1 relative flex overflow-hidden w-full h-full">
 
-        <!-- Slide-out / Drawer Panel (Search & Settings) -->
-        <aside id="sidebar" class="absolute inset-y-0 left-0 z-20 w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl">
+        <!-- Panel Desplegable Lateral (Menú y Búsqueda) -->
+        <aside id="sidebar" class="absolute inset-y-0 left-0 z-40 w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transform -translate-x-full transition-transform duration-300 shadow-2xl h-full">
             <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <h2 class="font-bold text-base flex items-center gap-2">
                     <i class="fa-solid fa-compass text-brand-500"></i> Explorar & Menú
@@ -100,7 +97,6 @@
             </div>
 
             <div class="flex-1 overflow-y-auto p-4 space-y-6">
-                <!-- Search Box inside drawer -->
                 <div class="space-y-2">
                     <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Buscar Lugar</label>
                     <div class="relative flex items-center">
@@ -111,7 +107,6 @@
                     <div id="searchResults" class="bg-slate-50 dark:bg-slate-700/30 rounded-xl max-h-48 overflow-y-auto space-y-1 hidden p-1"></div>
                 </div>
 
-                <!-- Offline Tile Management -->
                 <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Gestión Offline</h3>
                     <div class="bg-slate-50 dark:bg-slate-700/40 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-600 space-y-3">
@@ -129,27 +124,13 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Saved Places -->
-                <div class="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Favoritos</h3>
-                        <button id="saveCurrentLocBtn" class="text-xs text-brand-600 dark:text-brand-400 font-semibold flex items-center gap-1">
-                            <i class="fa-solid fa-plus"></i> Guardar ubicación
-                        </button>
-                    </div>
-                    <div id="savedPlacesList" class="space-y-2">
-                        <div class="text-center py-4 text-xs text-slate-400 italic">No hay favoritos</div>
-                    </div>
-                </div>
             </div>
         </aside>
 
-        <!-- Map Container -->
-        <main class="flex-1 relative">
+        <!-- Contenedor del Mapa -->
+        <main class="flex-1 relative w-full h-full overflow-hidden">
             <div id="map"></div>
 
-            <!-- Active Navigation Floating HUD -->
             <div id="activeNavigationCard" class="hidden absolute top-4 inset-x-4 z-20 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-brand-200 dark:border-brand-800 rounded-2xl p-4 shadow-2xl">
                 <div class="flex items-center justify-between mb-2">
                     <span class="px-2.5 py-0.5 bg-brand-500 text-white rounded-lg text-xs font-bold">Navegando GPS</span>
@@ -168,7 +149,6 @@
                 </div>
             </div>
 
-            <!-- Floating Map Actions (GPS Recenter & Simulation) -->
             <div class="absolute bottom-20 right-4 z-20 flex flex-col gap-2.5">
                 <button id="simulateGpsBtn" title="Simular Ruta" class="w-12 h-12 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl shadow-xl flex items-center justify-center border border-slate-200 dark:border-slate-700 active:scale-95 transition">
                     <i class="fa-solid fa-person-walking text-lg"></i>
@@ -180,8 +160,8 @@
         </main>
     </div>
 
-    <!-- Android Bottom Navigation Bar -->
-    <nav class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-around safe-bottom shadow-lg">
+    <!-- Barra de Navegación Inferior Android -->
+    <nav class="relative z-30 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-4 py-2 flex items-center justify-around safe-bottom shadow-lg shrink-0">
         <button id="navTabMap" class="flex flex-col items-center gap-1 text-brand-600 dark:text-brand-400 py-1 px-3 rounded-xl transition">
             <i class="fa-solid fa-map text-lg"></i>
             <span class="text-[10px] font-semibold">Mapa</span>
@@ -200,7 +180,7 @@
         </button>
     </nav>
 
-    <!-- Route Planner Modal -->
+    <!-- Modal Planificador de Ruta -->
     <div id="routeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
         <div class="bg-white dark:bg-slate-800 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700 space-y-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
@@ -232,7 +212,7 @@
         </div>
     </div>
 
-    <!-- Toast Notification -->
+    <!-- Notificación Toast -->
     <div id="notificationToast" class="fixed top-16 right-4 z-50 transform translate-x-full transition-transform duration-300 max-w-sm">
         <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl p-4 flex items-center gap-3">
             <div id="toastIcon" class="w-8 h-8 rounded-xl bg-brand-500 text-white flex items-center justify-center shrink-0">
@@ -245,9 +225,8 @@
         </div>
     </div>
 
-    <!-- Application Script -->
+    <!-- Script de la Aplicación -->
     <script>
-        // --- Dynamic Embedded Android PWA Manifest ---
         const manifestData = {
             "name": "OfflineNav Android GPS",
             "short_name": "OfflineNav",
@@ -265,16 +244,11 @@
         const blob = new Blob([stringManifest], {type: 'application/json'});
         document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
 
-        // --- Service Worker Registration for Offline Caching ---
         if ('serviceWorker' in navigator) {
             const swCode = `
                 const CACHE_NAME = 'offlinenav-v1';
-                self.addEventListener('install', (e) => {
-                    self.skipWaiting();
-                });
-                self.addEventListener('activate', (e) => {
-                    e.waitUntil(clients.claim());
-                });
+                self.addEventListener('install', (e) => { self.skipWaiting(); });
+                self.addEventListener('activate', (e) => { e.waitUntil(clients.claim()); });
                 self.addEventListener('fetch', (e) => {
                     e.respondWith(
                         caches.match(e.request).then((cachedResponse) => {
@@ -294,32 +268,27 @@
             navigator.serviceWorker.register(swUrl).catch(err => console.log('SW registration failed', err));
         }
 
-        // --- State Variables ---
-        let map;
+        let map = null;
         let userMarker = null;
         let destMarker = null;
         let routePolyline = null;
         let db = null;
-        let currentLatLng = [19.4326, -99.1332]; // Default fallback
+        let currentLatLng = [19.4326, -99.1332];
         let destinationLatLng = null;
         let currentRouteCoords = [];
         let navigationActive = false;
         let currentStepIndex = 0;
         let isSimulating = false;
         let simulationInterval = null;
-        let simulationIndex = 0;
         let deferredInstallPrompt = null;
         let wakeLockObj = null;
 
-        // --- Android Wake Lock API ---
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
                     wakeLockObj = await navigator.wakeLock.request('screen');
                     document.getElementById('wakelockBadge').classList.remove('hidden');
-                } catch (err) {
-                    console.log('WakeLock error:', err);
-                }
+                } catch (err) { console.log('WakeLock error:', err); }
             }
         }
 
@@ -331,7 +300,6 @@
             }
         }
 
-        // --- Notification Toast ---
         function showNotification(title, message, type = 'info') {
             const toast = document.getElementById('notificationToast');
             document.getElementById('toastTitle').textContent = title;
@@ -343,7 +311,6 @@
             setTimeout(() => toast.classList.add('translate-x-full'), 4000);
         }
 
-        // --- Speech Synthesis ---
         function speak(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -353,14 +320,12 @@
             }
         }
 
-        // --- IndexedDB for Offline Map Tiles ---
         function initDB() {
             return new Promise((resolve) => {
                 const req = indexedDB.open('OfflineNavAndroidDB', 1);
                 req.onupgradeneeded = (e) => {
                     const dbInstance = e.target.result;
                     if (!dbInstance.objectStoreNames.contains('tiles')) dbInstance.createObjectStore('tiles', { keyPath: 'url' });
-                    if (!dbInstance.objectStoreNames.contains('places')) dbInstance.createObjectStore('places', { keyPath: 'id', autoIncrement: true });
                 };
                 req.onsuccess = (e) => {
                     db = e.target.result;
@@ -379,19 +344,12 @@
             };
         }
 
-        // --- Leaflet Custom Offline Cache Layer ---
         L.TileLayer.OfflineCache = L.TileLayer.extend({
             createTile: function(coords, done) {
                 const tile = document.createElement('img');
-                
                 L.DomEvent.on(tile, 'load', L.bind(this._tileReady, this, coords, tile, done));
                 L.DomEvent.on(tile, 'error', L.bind(this._tileReady, this, coords, tile, done));
-
-                if (this.options.crossOrigin) {
-                    tile.crossOrigin = '';
-                }
-                
-                // Alt attribute required by Leaflet internal methods
+                if (this.options.crossOrigin) tile.crossOrigin = '';
                 tile.alt = '';
 
                 const url = this.getTileUrl(coords);
@@ -415,19 +373,13 @@
                     tile.src = url;
                 }
                 return tile;
-            },
-            
-            _tileReady: function (coords, tile, err) {
-                if (err) {
-                    err.alt = '';
-                }
-                L.TileLayer.prototype._tileReady.call(this, coords, [tile], err);
             }
         });
 
-        // --- Initialize Map ---
         function initMap() {
+            if (map) return;
             map = L.map('map', { zoomControl: false }).setView(currentLatLng, 15);
+            
             new L.TileLayer.OfflineCache('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap'
@@ -446,13 +398,12 @@
                 setDestination(e.latlng.lat, e.latlng.lng, 'Punto seleccionado');
             });
 
-            // Android Geolocation High Accuracy Watch
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(
                     (pos) => {
                         const latLng = [pos.coords.latitude, pos.coords.longitude];
                         currentLatLng = latLng;
-                        userMarker.setLatLng(latLng);
+                        if (userMarker) userMarker.setLatLng(latLng);
                         if (pos.coords.speed !== null) {
                             const speedKmH = Math.round(pos.coords.speed * 3.6);
                             document.getElementById('gpsSpeedBadge').textContent = `${speedKmH} km/h`;
@@ -462,19 +413,8 @@
                     { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
                 );
             }
-
-            // Compass / DeviceOrientation integration
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', (event) => {
-                    const heading = event.alpha;
-                    if (heading && userMarker._icon) {
-                        userMarker._icon.style.transform += ` rotate(${heading}deg)`;
-                    }
-                }, true);
-            }
         }
 
-        // --- Search Places ---
         async function searchPlaces(query) {
             if (!query.trim()) return;
             try {
@@ -512,10 +452,9 @@
                 iconAnchor: [16, 32]
             });
             destMarker = L.marker([lat, lon], { icon: destIcon }).addTo(map);
-            map.setView([lat, lon], 15);
+            if (map) map.setView([lat, lon], 15);
         }
 
-        // --- Routing & Navigation ---
         async function calculateRoute() {
             if (!destinationLatLng) return;
             try {
@@ -528,7 +467,7 @@
                 currentRouteCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
                 if (routePolyline) map.removeLayer(routePolyline);
                 routePolyline = L.polyline(currentRouteCoords, { color: '#3b82f6', weight: 6 }).addTo(map);
-                map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+                if (map) map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
 
                 window.currentRouteSteps = route.legs[0].steps;
                 document.getElementById('routeModal').classList.add('hidden');
@@ -569,11 +508,9 @@
             const step = window.currentRouteSteps[currentStepIndex] || window.currentRouteSteps[window.currentRouteSteps.length - 1];
             const instruction = step.maneuver.instruction || "Continúe por la vía actual";
             document.getElementById('navNextInstruction').textContent = instruction;
-            document.getElementById('navDistanceRemaining').textContent = `Siguiente maniobra en ruta`;
             speak(instruction);
         }
 
-        // --- Android Speech Recognition ---
         function initVoiceRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -600,7 +537,6 @@
             };
         }
 
-        // --- Android Simulator ---
         function toggleSimulation() {
             if (!currentRouteCoords.length) {
                 showNotification('Simulador', 'Calcula una ruta primero.', 'error');
@@ -611,30 +547,30 @@
                 isSimulating = false;
             } else {
                 isSimulating = true;
-                simulationIndex = 0;
+                let simIdx = 0;
                 showNotification('Simulación', 'Simulando trayecto GPS...', 'success');
                 simulationInterval = setInterval(() => {
-                    if (simulationIndex >= currentRouteCoords.length) {
+                    if (simIdx >= currentRouteCoords.length) {
                         clearInterval(simulationInterval);
                         isSimulating = false;
                         stopNavigation();
                         return;
                     }
-                    const c = currentRouteCoords[simulationIndex];
+                    const c = currentRouteCoords[simIdx];
                     currentLatLng = c;
-                    userMarker.setLatLng(c);
-                    map.panTo(c);
-                    simulationIndex++;
+                    if (userMarker) userMarker.setLatLng(c);
+                    if (map) map.panTo(c);
+                    simIdx++;
                 }, 1000);
             }
         }
 
-        // --- Event Listeners & Android UI Setup ---
         window.addEventListener('DOMContentLoaded', async () => {
             await initDB();
             initMap();
 
-            // PWA Install Prompt Handler
+            setTimeout(() => { if (map) map.invalidateSize(); }, 300);
+
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredInstallPrompt = e;
@@ -647,20 +583,18 @@
                 if (deferredInstallPrompt) {
                     deferredInstallPrompt.prompt();
                     const { outcome } = await deferredInstallPrompt.userChoice;
-                    if (outcome === 'accepted') {
-                        document.getElementById('installPwaBtn').classList.add('hidden');
-                    }
+                    if (outcome === 'accepted') document.getElementById('installPwaBtn').classList.add('hidden');
                     deferredInstallPrompt = null;
                 }
             });
 
-            // Bottom Nav tabs
             const sidebar = document.getElementById('sidebar');
             const routeModal = document.getElementById('routeModal');
 
             document.getElementById('navTabMap').addEventListener('click', () => {
                 sidebar.classList.add('-translate-x-full');
                 routeModal.classList.add('hidden');
+                setTimeout(() => { if (map) map.invalidateSize(); }, 200);
             });
             document.getElementById('navTabRoute').addEventListener('click', () => {
                 routeModal.classList.remove('hidden');
@@ -670,11 +604,11 @@
             document.getElementById('navTabMenu').addEventListener('click', () => {
                 sidebar.classList.toggle('-translate-x-full');
                 routeModal.classList.add('hidden');
+                setTimeout(() => { if (map) map.invalidateSize(); }, 200);
             });
 
             document.getElementById('closeSidebar').addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
 
-            // Search input handler
             let searchTimeout;
             document.getElementById('searchInput').addEventListener('input', (e) => {
                 clearTimeout(searchTimeout);
@@ -685,14 +619,13 @@
             document.getElementById('startNavBtn').addEventListener('click', startNavigation);
             document.getElementById('stopNavigationBtn').addEventListener('click', stopNavigation);
             document.getElementById('simulateGpsBtn').addEventListener('click', toggleSimulation);
-            document.getElementById('recenterBtn').addEventListener('click', () => map.setView(currentLatLng, 16));
+            document.getElementById('recenterBtn').addEventListener('click', () => { if (map) map.setView(currentLatLng, 16); });
             document.getElementById('voiceCommandBtn').addEventListener('click', initVoiceRecognition);
 
             document.getElementById('themeToggle').addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
             });
 
-            // Cache area button
             document.getElementById('cacheAreaBtn').addEventListener('click', () => {
                 showNotification('Caché', 'Área visible almacenada en caché local.', 'success');
                 updateTileCount();
