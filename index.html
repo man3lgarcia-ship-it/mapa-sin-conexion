@@ -1,9 +1,13 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>OfflineNav Android GPS & Voz</title>
+
+    <meta name="theme-color" content="#1e293b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -11,7 +15,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <style>
-        body, html {
+        html, body {
             margin: 0;
             padding: 0;
             width: 100%;
@@ -27,12 +31,15 @@
             left: 0;
             z-index: 1;
         }
+        .leaflet-bottom {
+            bottom: 65px;
+        }
     </style>
 </head>
-<body class="text-slate-100 bg-slate-900">
+<body class="h-full flex flex-col justify-between text-slate-100 bg-slate-900 select-none">
 
     <!-- Barra Superior -->
-    <header style="position: fixed; top: 0; left: 0; right: 0; z-index: 1000;" class="p-3 flex items-center justify-between bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
+    <header class="absolute top-0 left-0 right-0 z-20 p-3 flex items-center justify-between bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-lg">
         <div class="flex items-center space-x-2">
             <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
@@ -47,17 +54,49 @@
                 </div>
             </div>
         </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleVoiceControl()" id="voiceBtn" class="p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 active:scale-95 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            </button>
+        </div>
     </header>
 
     <!-- Contenedor del Mapa -->
     <div id="map"></div>
 
-    <!-- Script de Inicialización -->
+    <!-- Controles Flotantes Laterales -->
+    <div class="absolute right-3 bottom-20 z-20 flex flex-col space-y-3">
+        <button onclick="centerOnUser()" class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl text-white active:scale-95 transition">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"></path></svg>
+        </button>
+    </div>
+
+    <!-- Barra de Navegación Inferior Estilo Android -->
+    <nav class="absolute bottom-0 left-0 right-0 z-20 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-4 py-2.5 flex justify-around items-center text-xs font-medium text-slate-400 shadow-2xl">
+        <button onclick="setActiveTab('map')" class="flex flex-col items-center space-y-1 text-blue-500" id="tabMap">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+            <span>Mapa</span>
+        </button>
+        <button onclick="openRouteMenu()" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabRoute">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-1.544-1.544M9 20l4.544-4.544M9 20V10m0 0l-4.544 4.544M9 10l4.544-4.544"></path></svg>
+            <span>Ruta</span>
+        </button>
+        <button onclick="openVoiceMenu()" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabVoice">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+            <span>Voz</span>
+        </button>
+        <button onclick="openMenu()" class="flex flex-col items-center space-y-1 hover:text-slate-200" id="tabMenu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <span>Menú</span>
+        </button>
+    </nav>
+
+    <!-- Script Principal -->
     <script>
         let map, userMarker;
+        let isFollowing = true;
 
         function initMap() {
-            // Coordenadas iniciales (CDMX / México por defecto)
             map = L.map('map', { zoomControl: false }).setView([19.4326, -99.1332], 15);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -66,10 +105,7 @@
                 subdomains: ['a', 'b', 'c']
             }).addTo(map);
 
-            // Forzar recálculo del tamaño del mapa tras cargar
-            setTimeout(() => {
-                map.invalidateSize();
-            }, 500);
+            setTimeout(() => { map.invalidateSize(); }, 400);
 
             if ("geolocation" in navigator) {
                 navigator.geolocation.watchPosition(
@@ -88,13 +124,61 @@
                         } else {
                             userMarker.setLatLng(latLng);
                         }
+
+                        if (isFollowing) {
+                            map.setView(latLng, map.getZoom());
+                        }
                     },
                     (error) => {
-                        document.getElementById('gpsStatusText').innerText = "Ubicación predeterminada";
+                        document.getElementById('gpsStatusText').innerText = "Sin señal GPS";
                     },
                     { enableHighAccuracy: true, timeout: 10000 }
                 );
             }
+        }
+
+        function centerOnUser() {
+            isFollowing = true;
+            if (userMarker) {
+                map.setView(userMarker.getLatLng(), 17);
+                speak("Centrado en tu ubicación");
+            }
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function toggleVoiceControl() {
+            speak("Navegación por voz activa");
+        }
+
+        function openRouteMenu() {
+            setActiveTab('Route');
+            alert("Gestión de Rutas: Aquí podrás cargar archivos GPX o trazar tu ruta offline próximamente.");
+        }
+
+        function openVoiceMenu() {
+            setActiveTab('Voice');
+            speak("Asistente de voz listo. Di tu destino.");
+        }
+
+        function openMenu() {
+            setActiveTab('Menu');
+            alert("Menú de Configuración y Mapas Offline.");
+        }
+
+        function setActiveTab(tab) {
+            ['Map', 'Route', 'Voice', 'Menu'].forEach(t => {
+                const el = document.getElementById('tab' + t);
+                if(el) el.className = "flex flex-col items-center space-y-1 text-slate-400 hover:text-slate-200";
+            });
+            const active = document.getElementById('tab' + tab);
+            if(active) active.className = "flex flex-col items-center space-y-1 text-blue-500";
         }
 
         window.onload = initMap;
