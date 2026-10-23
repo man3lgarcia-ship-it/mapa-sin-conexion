@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full dark">
+<html lang="es" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>OfflineNav Guadalajara</title>
+    <title>OfflineNav Guadalajara Ruta</title>
 
     <meta name="theme-color" content="#1e293b">
     <meta name="mobile-web-app-capable" content="yes">
@@ -23,18 +23,6 @@
     }">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: { 500: '#3b82f6', 600: '#2563eb' }
-                    }
-                }
-            }
-        }
-    </script>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -109,12 +97,12 @@
 
     <!-- Script Principal -->
     <script>
-        let map, userMarker, destinationMarker, startMarker;
+        let map, userMarker, destinationMarker, startMarker, routeLine;
         let isFollowing = true;
         let recognition;
+        let currentCoords = null; // Guarda la última posición GPS del usuario
 
         function initMap() {
-            // Centrado estrictamente en Guadalajara
             map = L.map('map', { zoomControl: false }).setView([20.6668, -103.3918], 14);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -132,19 +120,19 @@
                         const lng = position.coords.longitude;
                         const speed = position.coords.speed ? (position.coords.speed * 3.6).toFixed(0) : 0;
 
+                        currentCoords = [lat, lng];
                         document.getElementById('speedDisplay').innerText = `${speed} km/h`;
                         document.getElementById('gpsStatusText').innerText = "GPS Activo";
 
-                        const latLng = [lat, lng];
                         if (!userMarker) {
-                            userMarker = L.marker(latLng).addTo(map);
-                            map.setView(latLng, 16);
+                            userMarker = L.marker(currentCoords).addTo(map);
+                            map.setView(currentCoords, 16);
                         } else {
-                            userMarker.setLatLng(latLng);
+                            userMarker.setLatLng(currentCoords);
                         }
 
                         if (isFollowing) {
-                            map.setView(latLng, map.getZoom());
+                            map.setView(currentCoords, map.getZoom());
                         }
                     },
                     (error) => {
@@ -191,11 +179,9 @@
             }
         }
 
-        // Intérprete inteligente de comandos de voz en Guadalajara
         async function parseVoiceCommand(text) {
             text = text.toLowerCase();
             
-            // 1. Comando: "cómo ir de [A] a [B]"
             if (text.includes('cómo ir de') || text.includes('como ir de')) {
                 const parts = text.split(/ de | a /);
                 if (parts.length >= 3) {
@@ -208,23 +194,15 @@
                     const destCoords = await fetchCoords(destQuery);
                     
                     if (originCoords && destCoords) {
-                        setStartPoint(originCoords.lat, originCoords.lon, originCoords.name);
-                        setDestination(destCoords.lat, destCoords.lon, destCoords.name);
-                        if(statusEl) statusEl.innerText = "¡Ruta trazada en Guadalajara!";
+                        drawRoute([originCoords.lat, originCoords.lon], [destCoords.lat, destCoords.lon], originCoords.name, destCoords.name);
+                        if(statusEl) statusEl.innerText = "¡Ruta trazada!";
                         return;
                     }
                 }
             }
-            
-            // 2. Comando: "busca la calle [calle] en la colonia [colonia]"
-            if (text.includes('calle') && text.includes('colonia')) {
-                searchLocation(text);
-                return;
-            }
 
-            // 3. Comando general o negocio: "buscar [lugar/negocio]"
             let cleanQuery = text.replace('buscar', '').replace('encuentra', '').replace('el', '').replace('la', '').trim();
-            searchLocation(cleanQuery);
+            searchAndRoute(cleanQuery);
         }
 
         async function fetchCoords(query) {
@@ -240,7 +218,7 @@
             return null;
         }
 
-        async function searchLocation(query) {
+        async function searchAndRoute(query) {
             const statusEl = document.getElementById('voiceStatus') || document.getElementById('searchStatus');
             if(statusEl) statusEl.innerText = `Buscando "${query}" en ZMG...`;
             
@@ -252,59 +230,69 @@
                 const data = await response.json();
                 
                 if (data && data.length > 0) {
-                    setDestination(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
-                    if(statusEl) statusEl.innerText = "¡Ubicación encontrada!";
-                } else {
-                    const fallbackUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ", Jalisco")}&countrycodes=mx`;
-                    const fallbackRes = await fetch(fallbackUrl);
-                    const fallbackData = await fallbackRes.json();
+                    const destLat = parseFloat(data[0].lat);
+                    const destLon = parseFloat(data[0].lon);
                     
-                    if (fallbackData && fallbackData.length > 0) {
-                        setDestination(parseFloat(fallbackData[0].lat), parseFloat(fallbackData[0].lon), fallbackData[0].display_name);
-                        if(statusEl) statusEl.innerText = "¡Encontrado en Jalisco!";
-                    } else {
-                        if(statusEl) statusEl.innerText = "No se encontró el lugar en Guadalajara.";
-                    }
+                    // Si tenemos GPS activo, trazamos ruta desde nuestra posición actual hasta el destino
+                    const origin = currentCoords ? currentCoords : [20.6668, -103.3918];
+                    drawRoute(origin, [destLat, destLon], "Mi ubicación", data[0].display_name);
+                    if(statusEl) statusEl.innerText = "¡Ruta trazada!";
+                } else {
+                    if(statusEl) statusEl.innerText = "No se encontró el lugar.";
                 }
             } catch (err) {
                 if(statusEl) statusEl.innerText = "Error en la búsqueda.";
             }
         }
 
+        // Función para trazar la línea de ruta usando OSRM
+        async function drawRoute(origin, destination, originName, destName) {
+            if (routeLine) map.removeLayer(routeLine);
+            if (startMarker) map.removeLayer(startMarker);
+            if (destinationMarker) map.removeLayer(destinationMarker);
+
+            // Colocar marcador de origen
+            startMarker = L.marker(origin, {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.9/images/marker-shadow.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                })
+            }).addTo(map).bindPopup(originName);
+
+            // Colocar marcador de destino
+            destinationMarker = L.marker(destination, {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.9/images/marker-shadow.png',
+                    iconSize: [25, 41], iconAnchor: [12, 41]
+                })
+            }).addTo(map).bindPopup(destName);
+
+            // Consultar OSRM para obtener el trazo exacto por las calles
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${origin[1]},${origin[0]};${destination[1]},${destination[0]}?overview=full&geometries=geojson`;
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    routeLine = L.polyline(coords, { color: '#2563eb', weight: 5, opacity: 0.8 }).addTo(map);
+                    map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+                    isFollowing = false;
+                }
+            } catch (e) {
+                // Respaldo en línea recta si falla la red de OSRM
+                routeLine = L.polyline([origin, destination], { color: '#2563eb', weight: 4, dashArray: '5, 5' }).addTo(map);
+                map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            }
+
+            document.getElementById('actionPanel').classList.add('hidden');
+        }
+
         function handleTextSearch() {
             const query = document.getElementById('searchInput').value;
-            if (query.trim() !== "") searchLocation(query);
-        }
-
-        function setStartPoint(lat, lon, name) {
-            const latLng = [lat, lon];
-            if (startMarker) startMarker.setLatLng(latLng);
-            else {
-                startMarker = L.marker(latLng, {
-                    icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.9/images/marker-shadow.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41]
-                    })
-                }).addTo(map);
-            }
-        }
-
-        function setDestination(lat, lon, name) {
-            const destLatLng = [lat, lon];
-            if (destinationMarker) destinationMarker.setLatLng(destLatLng);
-            else {
-                destinationMarker = L.marker(destLatLng, {
-                    icon: L.icon({
-                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.9/images/marker-shadow.png',
-                        iconSize: [25, 41], iconAnchor: [12, 41]
-                    })
-                }).addTo(map);
-            }
-            map.setView(destLatLng, 15);
-            isFollowing = false;
-            document.getElementById('actionPanel').classList.add('hidden');
+            if (query.trim() !== "") searchAndRoute(query);
         }
 
         function centerOnUser() {
@@ -315,12 +303,12 @@
         // --- Menú y Paneles ---
         function openRouteMenu() {
             setActiveTab('Route');
-            document.getElementById('panelTitle').innerText = "Buscar Dirección o Negocio";
+            document.getElementById('panelTitle').innerText = "Trazar Ruta en Guadalajara";
             document.getElementById('panelContent').innerHTML = `
-                <p class="mb-2">Escribe calle, colonia o negocio en Guadalajara:</p>
+                <p class="mb-2">Escribe el destino al que deseas ir desde tu posición:</p>
                 <div class="space-y-2">
-                    <input type="text" id="searchInput" placeholder="Ej. Chapultepec, Plaza Patria..." class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500">
-                    <button onclick="handleTextSearch()" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Buscar en GDL</button>
+                    <input type="text" id="searchInput" placeholder="Ej. Chapultepec, Plaza Andares..." class="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-xl text-white text-xs focus:outline-none focus:border-blue-500">
+                    <button onclick="handleTextSearch()" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Trazar Ruta</button>
                     <p id="searchStatus" class="text-slate-400 text-center text-[11px] mt-1"></p>
                 </div>
             `;
@@ -334,8 +322,7 @@
                 <p id="voiceStatus" class="mb-3 text-emerald-400 font-medium">Toca el botón y di tu orden:</p>
                 <ul class="text-[11px] text-slate-400 space-y-1 mb-3 list-disc pl-4">
                     <li>"Cómo ir de [Origen] a [Destino]"</li>
-                    <li>"Busca la calle [Nombre] en la colonia [Colonia]"</li>
-                    <li>"Buscar [Negocio o lugar]"</li>
+                    <li>"Buscar [Lugar o negocio]"</li>
                 </ul>
                 <button onclick="startListening()" class="w-full py-3 bg-emerald-600 rounded-xl text-white font-bold text-sm shadow-lg active:scale-95 transition flex items-center justify-center space-x-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
@@ -356,7 +343,7 @@
                     </div>
                     <button onclick="localStorage.clear(); alert('Caché limpiada con éxito');" class="w-full py-2 bg-slate-800 border border-slate-600 rounded-xl text-slate-200 active:scale-95 transition">Limpiar Caché Local</button>
                     <button onclick="location.reload()" class="w-full py-2 bg-blue-600 rounded-xl text-white font-semibold active:scale-95 transition">Recargar Aplicación</button>
-                    <p class="text-[10px] text-slate-500 text-center mt-1">OfflineNav v1.2 - Guadalajara, Jal.</p>
+                    <p class="text-[10px] text-slate-500 text-center mt-1">OfflineNav v1.3 - Guadalajara, Jal.</p>
                 </div>
             `;
             document.getElementById('actionPanel').classList.remove('hidden');
